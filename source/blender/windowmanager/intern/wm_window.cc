@@ -562,7 +562,7 @@ void WM_window_title(wmWindowManager *wm, wmWindow *win, const char *title)
     win_title.append(fmt::format(" [{}]", filepath));
   }
 
-  win_title.append(fmt::format(" - Blender {}", BKE_blender_version_string()));
+  win_title.append(fmt::format(" - Blender for ROME {}", BKE_blender_version_string()));
 
   GHOST_SetTitle(handle, win_title.c_str());
 
