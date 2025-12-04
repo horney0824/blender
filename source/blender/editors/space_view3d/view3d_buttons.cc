@@ -89,7 +89,7 @@ struct TransformMedian_Mesh {
 };
 
 struct TransformMedian_Curve {
-  float location[3], weight, b_weight, radius, tilt;
+  float location[3], weight, b_weight, radius, tilt, width, offset;
 };
 
 struct TransformMedian_Lattice {
@@ -409,6 +409,8 @@ static void v3d_editvertex_buts(
             median->weight += bezt->weight;
             median->radius += bezt->radius;
             median->tilt += bezt->tilt;
+            median->width += bezt->width;
+            median->offset += bezt->offset;
             if (!totcurvedata) { /* I.e. first time... */
               selp = bezt;
               seltype = &RNA_BezierSplinePoint;
@@ -440,6 +442,8 @@ static void v3d_editvertex_buts(
             median->weight += bp->weight;
             median->radius += bp->radius;
             median->tilt += bp->tilt;
+            median->width += bp->width;
+            median->offset += bp->offset;
             if (!totcurvedata) { /* I.e. first time... */
               selp = bp;
               seltype = &RNA_SplinePoint;
@@ -574,6 +578,8 @@ static void v3d_editvertex_buts(
     median->weight /= float(totcurvedata);
     median->radius /= float(totcurvedata);
     median->tilt /= float(totcurvedata);
+    median->width /= float(totcurvedata);
+    median->offset /= float(totcurvedata);
   }
   else if (totlattdata) {
     TransformMedian_Lattice *median = &median_basis.lattice;
@@ -868,6 +874,38 @@ static void v3d_editvertex_buts(
         but = uiDefButR(block,
                         UI_BTYPE_NUM,
                         0,
+                        IFACE_("Width:"),
+                        0,
+                        yi -= buth + but_margin,
+                        butw,
+                        buth,
+                        &data_ptr,
+                        "width",
+                        0,
+                        0.0,
+                        100.0,
+                        std::nullopt);
+        UI_but_number_step_size_set(but, 1);
+        UI_but_number_precision_set(but, 3);
+        but = uiDefButR(block,
+                        UI_BTYPE_NUM,
+                        0,
+                        IFACE_("Offset:"),
+                        0,
+                        yi -= buth + but_margin,
+                        butw,
+                        buth,
+                        &data_ptr,
+                        "offset",
+                        0,
+                        -100.0,
+                        100.0,
+                        std::nullopt);
+        UI_but_number_step_size_set(but, 1);
+        UI_but_number_precision_set(but, 3);
+        but = uiDefButR(block,
+                        UI_BTYPE_NUM,
+                        0,
                         IFACE_("Tilt:"),
                         0,
                         yi -= buth + but_margin,
@@ -909,6 +947,34 @@ static void v3d_editvertex_buts(
                         0.0,
                         100.0,
                         TIP_("Radius of curve control points"));
+        UI_but_number_step_size_set(but, 1);
+        UI_but_number_precision_set(but, 3);
+        but = uiDefButF(block,
+                        UI_BTYPE_NUM,
+                        B_TRANSFORM_PANEL_MEDIAN,
+                        IFACE_("Mean Width:"),
+                        0,
+                        yi -= buth + but_margin,
+                        butw,
+                        buth,
+                        &ve_median->width,
+                        0.0,
+                        100.0,
+                        TIP_("Width of curve control points"));
+        UI_but_number_step_size_set(but, 1);
+        UI_but_number_precision_set(but, 3);
+        but = uiDefButF(block,
+                        UI_BTYPE_NUM,
+                        B_TRANSFORM_PANEL_MEDIAN,
+                        IFACE_("Mean Offset:"),
+                        0,
+                        yi -= buth + but_margin,
+                        butw,
+                        buth,
+                        &ve_median->offset,
+                        -100.0,
+                        100.0,
+                        TIP_("Offset of curve control points"));
         UI_but_number_step_size_set(but, 1);
         UI_but_number_precision_set(but, 3);
         but = uiDefButF(block,
@@ -1143,7 +1209,8 @@ static void v3d_editvertex_buts(
     }
     else if (ELEM(ob->type, OB_CURVES_LEGACY, OB_SURF) &&
              (apply_vcos || median_basis.curve.b_weight || median_basis.curve.weight ||
-              median_basis.curve.radius || median_basis.curve.tilt))
+              median_basis.curve.radius || median_basis.curve.tilt || median_basis.curve.width ||
+              median_basis.curve.offset))
     {
       const TransformMedian_Curve *median = &median_basis.curve,
                                   *ve_median = &ve_median_basis.curve;
@@ -1172,6 +1239,12 @@ static void v3d_editvertex_buts(
               }
               if (median->radius) {
                 apply_raw_diff(&bezt->radius, tot, ve_median->radius, median->radius);
+              }
+              if (median->width) {
+                apply_raw_diff(&bezt->width, tot, ve_median->width, median->width);
+              }
+              if (median->offset) {
+                apply_raw_diff(&bezt->offset, tot, ve_median->offset, median->offset);
               }
               if (median->tilt) {
                 apply_raw_diff(&bezt->tilt, tot, ve_median->tilt, median->tilt);
@@ -1202,6 +1275,12 @@ static void v3d_editvertex_buts(
               }
               if (median->radius) {
                 apply_raw_diff(&bp->radius, tot, ve_median->radius, median->radius);
+              }
+              if (median->width) {
+                apply_raw_diff(&bp->width, tot, ve_median->width, median->width);
+              }
+              if (median->offset) {
+                apply_raw_diff(&bp->offset, tot, ve_median->offset, median->offset);
               }
               if (median->tilt) {
                 apply_raw_diff(&bp->tilt, tot, ve_median->tilt, median->tilt);

@@ -81,6 +81,10 @@ typedef struct BezTriple {
   float weight;
   /** For bevel tapering & modifiers. */
   float radius;
+  /** Custom width for tools and geometry nodes. */
+  float width;
+  /** Custom offset for tools and geometry nodes. */
+  float offset;
 
   /** Ipo: interpolation mode for segment from this BezTriple to the next. */
   char ipo;
@@ -131,7 +135,10 @@ typedef struct BPoint {
   short hide;
   /** User-set radius per point for beveling etc. */
   float radius;
-  char _pad[4];
+  /** Custom width for tools and geometry nodes. */
+  float width;
+  /** Custom offset for tools and geometry nodes. */
+  float offset;
 } BPoint;
 
 /**

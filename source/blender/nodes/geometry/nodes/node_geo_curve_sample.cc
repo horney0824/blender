@@ -6,9 +6,11 @@
 #include "BLI_math_quaternion.hh"
 #include "BLI_math_vector.hh"
 
+#include "BLI_cpp_type.hh"
 #include "BLI_generic_array.hh"
 #include "BLI_length_parameterize.hh"
 
+#include "BKE_attribute.hh"
 #include "BKE_curves.hh"
 
 #include "UI_interface.hh"
@@ -65,6 +67,8 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Vector>("Position").dependent_field({2, 3, 4});
   b.add_output<decl::Vector>("Tangent").dependent_field({2, 3, 4});
   b.add_output<decl::Vector>("Normal").dependent_field({2, 3, 4});
+  b.add_output<decl::Float>("Width").dependent_field({2, 3, 4});
+  b.add_output<decl::Float>("Offset").dependent_field({2, 3, 4});
 }
 
 static void node_layout(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
@@ -88,7 +92,7 @@ static void node_gather_link_searches(GatherLinkSearchOpParams &params)
   const NodeDeclaration &declaration = *params.node_type().static_declaration;
   search_link_ops_for_declarations(params, declaration.inputs.as_span().take_front(1));
   search_link_ops_for_declarations(params, declaration.inputs.as_span().take_back(3));
-  search_link_ops_for_declarations(params, declaration.outputs.as_span().take_back(3));
+  search_link_ops_for_declarations(params, declaration.outputs.as_span().take_back(5));
 
   const std::optional<eCustomDataType> type = bke::socket_type_to_custom_data_type(
       eNodeSocketDatatype(params.other_socket().type));
@@ -220,6 +224,8 @@ class SampleCurveFunction : public mf::MultiFunction {
   std::optional<bke::CurvesFieldContext> source_context_;
   std::unique_ptr<FieldEvaluator> source_evaluator_;
   const GVArray *source_data_;
+  std::optional<VArraySpan<float>> width_attribute_;
+  std::optional<VArraySpan<float>> offset_attribute_;
 
  public:
   SampleCurveFunction(GeometrySet geometry_set,
@@ -234,9 +240,25 @@ class SampleCurveFunction : public mf::MultiFunction {
     builder.single_output<float3>("Tangent", mf::ParamFlag::SupportsUnusedOutput);
     builder.single_output<float3>("Normal", mf::ParamFlag::SupportsUnusedOutput);
     builder.single_output("Value", src_field_.cpp_type(), mf::ParamFlag::SupportsUnusedOutput);
+    builder.single_output<float>("Width", mf::ParamFlag::SupportsUnusedOutput);
+    builder.single_output<float>("Offset", mf::ParamFlag::SupportsUnusedOutput);
+    builder.single_output<float3>("Position", mf::ParamFlag::SupportsUnusedOutput);
+    builder.single_output<float3>("Tangent", mf::ParamFlag::SupportsUnusedOutput);
+    builder.single_output<float3>("Normal", mf::ParamFlag::SupportsUnusedOutput);
     this->set_signature(&signature_);
 
     this->evaluate_source();
+
+    if (const Curves *curves_id = geometry_set_.get_curves()) {
+      const bke::CurvesGeometry &curves = curves_id->geometry.wrap();
+      const bke::AttributeAccessor attributes = curves.attributes();
+      width_attribute_.emplace(attributes.lookup_or_default<float>(
+          "width", bke::AttrDomain::Point, 0.0f)
+                                   .varray);
+      offset_attribute_.emplace(attributes.lookup_or_default<float>(
+          "offset", bke::AttrDomain::Point, 0.0f)
+                                    .varray);
+    }
   }
 
   void call(const IndexMask &mask, mf::Params params, mf::Context /*context*/) const override
@@ -248,6 +270,10 @@ class SampleCurveFunction : public mf::MultiFunction {
     MutableSpan<float3> sampled_normals = params.uninitialized_single_output_if_required<float3>(
         4, "Normal");
     GMutableSpan sampled_values = params.uninitialized_single_output_if_required(5, "Value");
+    MutableSpan<float> sampled_widths = params.uninitialized_single_output_if_required<float>(
+        6, "Width");
+    MutableSpan<float> sampled_offsets = params.uninitialized_single_output_if_required<float>(
+        7, "Offset");
 
     auto return_default = [&]() {
       if (!sampled_positions.is_empty()) {
@@ -258,6 +284,18 @@ class SampleCurveFunction : public mf::MultiFunction {
       }
       if (!sampled_normals.is_empty()) {
         index_mask::masked_fill(sampled_normals, {0, 0, 0}, mask);
+      }
+      if (!sampled_values.is_empty()) {
+        bke::attribute_math::convert_to_static_type(source_data_->type(), [&](auto dummy) {
+          using T = decltype(dummy);
+          index_mask::masked_fill<T>(sampled_values.typed<T>(), {}, mask);
+        });
+      }
+      if (!sampled_widths.is_empty()) {
+        index_mask::masked_fill(sampled_widths, 0.0f, mask);
+      }
+      if (!sampled_offsets.is_empty()) {
+        index_mask::masked_fill(sampled_offsets, 0.0f, mask);
       }
     };
 
@@ -293,6 +331,8 @@ class SampleCurveFunction : public mf::MultiFunction {
     Array<float> factors;
     GArray<> src_original_values(source_data_->type());
     GArray<> src_evaluated_values(source_data_->type());
+    Array<float> width_evaluated_values;
+    Array<float> offset_evaluated_values;
 
     auto fill_invalid = [&](const IndexMask &mask) {
       if (!sampled_positions.is_empty()) {
@@ -310,10 +350,17 @@ class SampleCurveFunction : public mf::MultiFunction {
           index_mask::masked_fill<T>(sampled_values.typed<T>(), {}, mask);
         });
       }
+      if (!sampled_widths.is_empty()) {
+        index_mask::masked_fill(sampled_widths, 0.0f, mask);
+      }
+      if (!sampled_offsets.is_empty()) {
+        index_mask::masked_fill(sampled_offsets, 0.0f, mask);
+      }
     };
 
     auto sample_curve = [&](const int curve_i, const IndexMask &mask) {
       const IndexRange evaluated_points = evaluated_points_by_curve[curve_i];
+      const IndexRange points = points_by_curve[curve_i];
       if (evaluated_points.size() == 1) {
         if (!sampled_positions.is_empty()) {
           index_mask::masked_fill(
@@ -373,7 +420,6 @@ class SampleCurveFunction : public mf::MultiFunction {
             [&](const int i) { sampled_normals[i] = math::normalize(sampled_normals[i]); });
       }
       if (!sampled_values.is_empty()) {
-        const IndexRange points = points_by_curve[curve_i];
         src_original_values.reinitialize(points.size());
         source_data_->materialize_compressed_to_uninitialized(points, src_original_values.data());
         src_evaluated_values.reinitialize(evaluated_points.size());
@@ -385,6 +431,38 @@ class SampleCurveFunction : public mf::MultiFunction {
           length_parameterize::interpolate_to_masked<T>(
               src_evaluated_values_typed, indices, factors, mask, sampled_values_typed);
         });
+      }
+      if (!sampled_widths.is_empty()) {
+        if (width_attribute_) {
+          const Span<float> width_points = width_attribute_->slice(points.start(), points.size());
+          width_evaluated_values.reinitialize(evaluated_points.size());
+          const GSpan width_src_span(CPPType::get<float>(), width_points.data(), width_points.size());
+          GMutableSpan width_eval_span(
+              CPPType::get<float>(), width_evaluated_values.data(), width_evaluated_values.size());
+          curves.interpolate_to_evaluated(curve_i, width_src_span, width_eval_span);
+          length_parameterize::interpolate_to_masked<float>(
+              width_evaluated_values.as_span(), indices, factors, mask, sampled_widths);
+        }
+        else {
+          index_mask::masked_fill(sampled_widths, 0.0f, mask);
+        }
+      }
+      if (!sampled_offsets.is_empty()) {
+        if (offset_attribute_) {
+          const Span<float> offset_points = offset_attribute_->slice(points.start(), points.size());
+          offset_evaluated_values.reinitialize(evaluated_points.size());
+          const GSpan offset_src_span(
+              CPPType::get<float>(), offset_points.data(), offset_points.size());
+          GMutableSpan offset_eval_span(CPPType::get<float>(),
+                                        offset_evaluated_values.data(),
+                                        offset_evaluated_values.size());
+          curves.interpolate_to_evaluated(curve_i, offset_src_span, offset_eval_span);
+          length_parameterize::interpolate_to_masked<float>(
+              offset_evaluated_values.as_span(), indices, factors, mask, sampled_offsets);
+        }
+        else {
+          index_mask::masked_fill(sampled_offsets, 0.0f, mask);
+        }
       }
     };
 
@@ -515,6 +593,8 @@ static void node_geo_exec(GeoNodeExecParams params)
   params.set_output("Tangent", Field<float3>(sample_op, 1));
   params.set_output("Normal", Field<float3>(sample_op, 2));
   params.set_output("Value", GField(sample_op, 3));
+  params.set_output("Width", Field<float>(sample_op, 4));
+  params.set_output("Offset", Field<float>(sample_op, 5));
 }
 
 static void node_register()

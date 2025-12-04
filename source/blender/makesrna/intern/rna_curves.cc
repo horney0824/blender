@@ -239,6 +239,52 @@ static void rna_CurvePoint_radius_set(PointerRNA *ptr, float value)
   radii.varray.set(rna_CurvePoint_index_get_const(ptr), value);
 }
 
+static float rna_CurvePoint_width_get(PointerRNA *ptr)
+{
+  using namespace blender;
+  const Curves *curves = rna_curves(ptr);
+  const bke::AttributeAccessor attributes = curves->geometry.wrap().attributes();
+  const VArray widths = *attributes.lookup_or_default<float>(
+      "width", bke::AttrDomain::Point, 0.0f);
+  return widths[rna_CurvePoint_index_get_const(ptr)];
+}
+
+static void rna_CurvePoint_width_set(PointerRNA *ptr, float value)
+{
+  using namespace blender;
+  Curves *curves = rna_curves(ptr);
+  bke::MutableAttributeAccessor attributes = curves->geometry.wrap().attributes_for_write();
+  bke::AttributeWriter widths = attributes.lookup_or_add_for_write<float>("width",
+                                                                          bke::AttrDomain::Point);
+  if (!widths) {
+    return;
+  }
+  widths.varray.set(rna_CurvePoint_index_get_const(ptr), value);
+}
+
+static float rna_CurvePoint_offset_get(PointerRNA *ptr)
+{
+  using namespace blender;
+  const Curves *curves = rna_curves(ptr);
+  const bke::AttributeAccessor attributes = curves->geometry.wrap().attributes();
+  const VArray offsets = *attributes.lookup_or_default<float>(
+      "offset", bke::AttrDomain::Point, 0.0f);
+  return offsets[rna_CurvePoint_index_get_const(ptr)];
+}
+
+static void rna_CurvePoint_offset_set(PointerRNA *ptr, float value)
+{
+  using namespace blender;
+  Curves *curves = rna_curves(ptr);
+  bke::MutableAttributeAccessor attributes = curves->geometry.wrap().attributes_for_write();
+  bke::AttributeWriter offsets = attributes.lookup_or_add_for_write<float>(
+      "offset", bke::AttrDomain::Point);
+  if (!offsets) {
+    return;
+  }
+  offsets.varray.set(rna_CurvePoint_index_get_const(ptr), value);
+}
+
 static std::optional<std::string> rna_CurvePoint_path(const PointerRNA *ptr)
 {
   return fmt::format("points[{}]", rna_CurvePoint_index_get_const(ptr));
@@ -343,6 +389,18 @@ static void rna_def_curves_point(BlenderRNA *brna)
   RNA_def_property_float_funcs(
       prop, "rna_CurvePoint_radius_get", "rna_CurvePoint_radius_set", nullptr);
   RNA_def_property_ui_text(prop, "Radius", "");
+  RNA_def_property_update(prop, 0, "rna_Curves_update_data");
+
+  prop = RNA_def_property(srna, "width", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_funcs(
+      prop, "rna_CurvePoint_width_get", "rna_CurvePoint_width_set", nullptr);
+  RNA_def_property_ui_text(prop, "Width", "");
+  RNA_def_property_update(prop, 0, "rna_Curves_update_data");
+
+  prop = RNA_def_property(srna, "offset", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_funcs(
+      prop, "rna_CurvePoint_offset_get", "rna_CurvePoint_offset_set", nullptr);
+  RNA_def_property_ui_text(prop, "Offset", "");
   RNA_def_property_update(prop, 0, "rna_Curves_update_data");
 
   prop = RNA_def_property(srna, "index", PROP_INT, PROP_UNSIGNED);

@@ -121,6 +121,12 @@ Curves *curve_legacy_to_curves(const Curve &curve_legacy, const ListBase &nurbs_
   SpanAttributeWriter<float> radius_attribute =
       curves_attributes.lookup_or_add_for_write_only_span<float>("radius", AttrDomain::Point);
   MutableSpan<float> radii = radius_attribute.span;
+  SpanAttributeWriter<float> width_attribute =
+      curves_attributes.lookup_or_add_for_write_only_span<float>("width", AttrDomain::Point);
+  MutableSpan<float> widths = width_attribute.span;
+  SpanAttributeWriter<float> offset_attribute =
+      curves_attributes.lookup_or_add_for_write_only_span<float>("offset", AttrDomain::Point);
+  MutableSpan<float> offsets_attr = offset_attribute.span;
   MutableSpan<float> tilts = curves.tilt_for_write();
 
   auto create_poly = [&](const IndexMask &selection) {
@@ -133,6 +139,8 @@ Curves *curve_legacy_to_curves(const Curve &curve_legacy, const ListBase &nurbs_
         const BPoint &bp = src_points[i];
         positions[points[i]] = bp.vec;
         radii[points[i]] = bp.radius;
+        widths[points[i]] = bp.width;
+        offsets_attr[points[i]] = bp.offset;
         tilts[points[i]] = bp.tilt;
       }
     });
@@ -164,6 +172,8 @@ Curves *curve_legacy_to_curves(const Curve &curve_legacy, const ListBase &nurbs_
         handle_positions_r[points[i]] = point.vec[2];
         handle_types_r[points[i]] = handle_type_from_legacy(point.h2);
         radii[points[i]] = point.radius;
+        widths[points[i]] = point.width;
+        offsets_attr[points[i]] = point.offset;
         tilts[points[i]] = point.tilt;
       }
     });
@@ -188,6 +198,8 @@ Curves *curve_legacy_to_curves(const Curve &curve_legacy, const ListBase &nurbs_
         const BPoint &bp = src_points[i];
         positions[points[i]] = bp.vec;
         radii[points[i]] = bp.radius;
+        widths[points[i]] = bp.width;
+        offsets_attr[points[i]] = bp.offset;
         tilts[points[i]] = bp.tilt;
         nurbs_weights[points[i]] = bp.vec[3];
       }
@@ -221,6 +233,8 @@ Curves *curve_legacy_to_curves(const Curve &curve_legacy, const ListBase &nurbs_
   curves.normal_mode_for_write().fill(normal_mode_from_legacy(curve_legacy.twist_mode));
 
   radius_attribute.finish();
+  width_attribute.finish();
+  offset_attribute.finish();
 
   curves_id->mat = static_cast<Material **>(MEM_dupallocN(curve_legacy.mat));
   curves_id->totcol = curve_legacy.totcol;

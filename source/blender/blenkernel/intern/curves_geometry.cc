@@ -41,6 +41,8 @@ namespace blender::bke {
 
 constexpr StringRef ATTR_POSITION = "position";
 constexpr StringRef ATTR_RADIUS = "radius";
+constexpr StringRef ATTR_WIDTH = "width";
+constexpr StringRef ATTR_OFFSET = "offset";
 constexpr StringRef ATTR_TILT = "tilt";
 constexpr StringRef ATTR_CURVE_TYPE = "curve_type";
 constexpr StringRef ATTR_CYCLIC = "cyclic";
@@ -397,6 +399,24 @@ VArray<float> CurvesGeometry::radius() const
 MutableSpan<float> CurvesGeometry::radius_for_write()
 {
   return get_mutable_attribute<float>(*this, AttrDomain::Point, ATTR_RADIUS, 0.01f);
+}
+
+VArray<float> CurvesGeometry::width() const
+{
+  return get_varray_attribute<float>(*this, AttrDomain::Point, ATTR_WIDTH, 0.0f);
+}
+MutableSpan<float> CurvesGeometry::width_for_write()
+{
+  return get_mutable_attribute<float>(*this, AttrDomain::Point, ATTR_WIDTH, 0.0f);
+}
+
+VArray<float> CurvesGeometry::offset() const
+{
+  return get_varray_attribute<float>(*this, AttrDomain::Point, ATTR_OFFSET, 0.0f);
+}
+MutableSpan<float> CurvesGeometry::offset_for_write()
+{
+  return get_mutable_attribute<float>(*this, AttrDomain::Point, ATTR_OFFSET, 0.0f);
 }
 
 Span<int> CurvesGeometry::offsets() const

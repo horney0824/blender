@@ -232,6 +232,10 @@ class CurvesGeometry : public ::CurvesGeometry {
 
   VArray<float> radius() const;
   MutableSpan<float> radius_for_write();
+  VArray<float> width() const;
+  MutableSpan<float> width_for_write();
+  VArray<float> offset() const;
+  MutableSpan<float> offset_for_write();
 
   /** Whether the curve loops around to connect to itself, on the curve domain. */
   VArray<bool> cyclic() const;

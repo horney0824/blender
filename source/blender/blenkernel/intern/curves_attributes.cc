@@ -198,6 +198,20 @@ static GeometryAttributeProviders create_attribute_providers_for_curve()
                                                point_access,
                                                tag_component_radii_changed);
 
+  static BuiltinCustomDataLayerProvider width("width",
+                                              AttrDomain::Point,
+                                              CD_PROP_FLOAT,
+                                              BuiltinAttributeProvider::Deletable,
+                                              point_access,
+                                              nullptr);
+
+  static BuiltinCustomDataLayerProvider offset("offset",
+                                               AttrDomain::Point,
+                                               CD_PROP_FLOAT,
+                                               BuiltinAttributeProvider::Deletable,
+                                               point_access,
+                                               nullptr);
+
   static BuiltinCustomDataLayerProvider id("id",
                                            AttrDomain::Point,
                                            CD_PROP_INT32,
@@ -363,6 +377,8 @@ static GeometryAttributeProviders create_attribute_providers_for_curve()
 
   return GeometryAttributeProviders({&position,
                                      &radius,
+                                     &width,
+                                     &offset,
                                      &id,
                                      &tilt,
                                      &handle_right,

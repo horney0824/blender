@@ -933,6 +933,18 @@ static void rna_def_bpoint(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Bevel Radius", "Radius for beveling");
   RNA_def_property_update(prop, 0, "rna_Curve_update_data");
 
+  prop = RNA_def_property(srna, "width", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, nullptr, "width");
+  RNA_def_property_range(prop, 0.0f, FLT_MAX);
+  RNA_def_property_ui_text(prop, "Width", "Custom width value");
+  RNA_def_property_update(prop, 0, "rna_Curve_update_data");
+
+  prop = RNA_def_property(srna, "offset", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, nullptr, "offset");
+  RNA_def_property_ui_range(prop, -FLT_MAX, FLT_MAX, 1, 3);
+  RNA_def_property_ui_text(prop, "Offset", "Custom offset value");
+  RNA_def_property_update(prop, 0, "rna_Curve_update_data");
+
   RNA_def_struct_path_func(srna, "rna_Curve_spline_point_path");
 }
 
@@ -1021,6 +1033,18 @@ static void rna_def_beztriple(BlenderRNA *brna)
   RNA_def_property_float_sdna(prop, nullptr, "radius");
   RNA_def_property_range(prop, 0.0f, FLT_MAX);
   RNA_def_property_ui_text(prop, "Bevel Radius", "Radius for beveling");
+  RNA_def_property_update(prop, 0, "rna_Curve_update_data");
+
+  prop = RNA_def_property(srna, "width", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, nullptr, "width");
+  RNA_def_property_range(prop, 0.0f, FLT_MAX);
+  RNA_def_property_ui_text(prop, "Width", "Custom width value");
+  RNA_def_property_update(prop, 0, "rna_Curve_update_data");
+
+  prop = RNA_def_property(srna, "offset", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, nullptr, "offset");
+  RNA_def_property_ui_range(prop, -FLT_MAX, FLT_MAX, 1, 3);
+  RNA_def_property_ui_text(prop, "Offset", "Custom offset value");
   RNA_def_property_update(prop, 0, "rna_Curve_update_data");
 
   RNA_def_struct_path_func(srna, "rna_Curve_spline_point_path");

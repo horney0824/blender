@@ -472,7 +472,8 @@ static void interpolate_curve_attributes(bke::CurvesGeometry &child_curves,
     if (type == CD_PROP_STRING) {
       return;
     }
-    if (iter.is_builtin && !ELEM(iter.name, "radius", "tilt", "resolution", "cyclic")) {
+    if (iter.is_builtin &&
+        !ELEM(iter.name, "radius", "tilt", "resolution", "cyclic", "width", "offset")) {
       return;
     }
 
