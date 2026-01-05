@@ -14311,6 +14311,7 @@ static void rna_def_nodes(BlenderRNA *brna)
   define("GeometryNode", "GeometryNodeStringToCurves", def_geo_string_to_curves);
   define("GeometryNode", "GeometryNodeSubdivideCurve");
   define("GeometryNode", "GeometryNodeSubdivideMesh");
+  define("GeometryNode", "GeometryNodeSubdivideMeshAxis");
   define("GeometryNode", "GeometryNodeSubdivisionSurface");
   define("GeometryNode", "GeometryNodeSwitch");
   define("GeometryNode", "GeometryNodeTool3DCursor");

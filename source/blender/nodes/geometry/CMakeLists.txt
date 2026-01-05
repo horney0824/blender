@@ -156,6 +156,7 @@ set(SRC
   nodes/node_geo_mesh_primitive_line.cc
   nodes/node_geo_mesh_primitive_uv_sphere.cc
   nodes/node_geo_mesh_subdivide.cc
+  nodes/node_geo_mesh_subdivide_axis.cc
   nodes/node_geo_mesh_to_curve.cc
   nodes/node_geo_mesh_to_density_grid.cc
   nodes/node_geo_mesh_to_points.cc
