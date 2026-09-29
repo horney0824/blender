@@ -1331,6 +1331,14 @@ ID *BKE_libblock_alloc_notest(short type)
   return nullptr;
 }
 
+static IDNewNameResult id_new_name_validate(Main &bmain,
+                                            ListBase &lb,
+                                            ID &id,
+                                            const char *newname,
+                                            IDNewNameMode mode,
+                                            bool do_linked_data,
+                                            bool do_sort);
+
 void *BKE_libblock_alloc_in_lib(Main *bmain,
                                 std::optional<Library *> owner_library,
                                 short type,
@@ -1388,8 +1396,15 @@ void *BKE_libblock_alloc_in_lib(Main *bmain,
       }
 
       BKE_main_lock(bmain);
-      BLI_addtail(lb, id);
-      BKE_id_new_name_validate(*bmain, *lb, *id, name, IDNewNameMode::RenameExistingNever, true);
+      const bool do_sort = (flag & LIB_ID_CREATE_NO_NAME_SORT) == 0;
+      if (do_sort || ID_IS_LINKED(id)) {
+        BLI_addtail(lb, id);
+      }
+      else {
+        BLI_addhead(lb, id);
+      }
+      id_new_name_validate(
+          *bmain, *lb, *id, name, IDNewNameMode::RenameExistingNever, true, do_sort);
       bmain->is_memfile_undo_written = false;
       /* alphabetic insertion: is in new_id */
       BKE_main_unlock(bmain);
@@ -1880,18 +1895,24 @@ void id_sort_by_name(ListBase *lb, ID *id, ID *id_sorting_hint)
 #undef ID_SORT_STEP_SIZE
 }
 
-IDNewNameResult BKE_id_new_name_validate(Main &bmain,
-                                         ListBase &lb,
-                                         ID &id,
-                                         const char *newname,
-                                         IDNewNameMode mode,
-                                         const bool do_linked_data)
+static IDNewNameResult id_new_name_validate(Main &bmain,
+                                            ListBase &lb,
+                                            ID &id,
+                                            const char *newname,
+                                            IDNewNameMode mode,
+                                            const bool do_linked_data,
+                                            const bool do_sort)
 {
+  /* Renaming another existing ID requires sorting it back into the list. */
+  BLI_assert(do_sort || mode == IDNewNameMode::RenameExistingNever);
+
   char name[MAX_ID_NAME - 2];
 
   /* If library, don't rename (unless explicitly required), but do ensure proper sorting. */
   if (!do_linked_data && ID_IS_LINKED(&id)) {
-    id_sort_by_name(&lb, &id, nullptr);
+    if (do_sort) {
+      id_sort_by_name(&lb, &id, nullptr);
+    }
 
     return {IDNewNameResult::Action::UNCHANGED, nullptr};
   }
@@ -1974,8 +1995,20 @@ IDNewNameResult BKE_id_new_name_validate(Main &bmain,
   else if (had_name_collision) {
     result.action = IDNewNameResult::Action::UNCHANGED_COLLISION;
   }
-  id_sort_by_name(&lb, &id, nullptr);
+  if (do_sort) {
+    id_sort_by_name(&lb, &id, nullptr);
+  }
   return result;
+}
+
+IDNewNameResult BKE_id_new_name_validate(Main &bmain,
+                                         ListBase &lb,
+                                         ID &id,
+                                         const char *newname,
+                                         IDNewNameMode mode,
+                                         const bool do_linked_data)
+{
+  return id_new_name_validate(bmain, lb, id, newname, mode, do_linked_data, true);
 }
 
 void BKE_main_id_newptr_and_tag_clear(Main *bmain)

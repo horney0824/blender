@@ -5163,10 +5163,13 @@ void BKE_lib_override_library_update(Main *bmain, ID *local)
    * Not impossible to do, but would rather see first if extra useless usual user handling
    * is actually a (performances) issue here. */
 
+  /* `tmp_id` (and its shape-key, if any) is freed below before any other ID gets added to
+   * `bmain`, so skip the costly sorted insertion into its Main list. */
   ID *tmp_id = BKE_id_copy_ex(bmain,
                               local->override_library->reference,
                               nullptr,
-                              LIB_ID_COPY_DEFAULT | LIB_ID_COPY_NO_LIB_OVERRIDE_LOCAL_DATA_FLAG);
+                              LIB_ID_COPY_DEFAULT | LIB_ID_COPY_NO_LIB_OVERRIDE_LOCAL_DATA_FLAG |
+                                  LIB_ID_CREATE_NO_NAME_SORT);
 
   if (tmp_id == nullptr) {
     return;

@@ -59,6 +59,7 @@
 #include "BLI_string_utils.hh"
 #include "BLI_threads.h"
 #include "BLI_time.h"
+#include "BLI_vector.hh"
 #include "BLI_utildefines.h"
 
 #include "BLT_translation.hh"
@@ -1590,6 +1591,42 @@ static void change_link_placeholder_to_real_ID_pointer(ListBase *mainlist,
     FileData *fd = change_ID_link_filedata_get(mainptr, basefd);
     if (fd) {
       change_link_placeholder_to_real_ID_pointer_fd(fd, old, newp);
+    }
+  }
+}
+
+/**
+ * Same as #change_link_placeholder_to_real_ID_pointer, but for many placeholders at once, in a
+ * single pass over each `libmap`.
+ *
+ * The placeholders (keys of \a placeholder_to_real) must still be allocated, otherwise their
+ * address could have been re-used by a newly read ID.
+ */
+static void change_link_placeholders_to_real_ID_pointers(
+    ListBase *mainlist,
+    FileData *basefd,
+    const blender::Map<const void *, ID *> &placeholder_to_real)
+{
+  if (placeholder_to_real.is_empty()) {
+    return;
+  }
+  LISTBASE_FOREACH (Main *, mainptr, mainlist) {
+    FileData *fd = change_ID_link_filedata_get(mainptr, basefd);
+    if (fd == nullptr) {
+      continue;
+    }
+    for (NewAddress &entry : fd->libmap->map.values()) {
+      if (entry.nr != ID_LINK_PLACEHOLDER) {
+        continue;
+      }
+      ID *const *realid = placeholder_to_real.lookup_ptr(entry.newp);
+      if (realid == nullptr) {
+        continue;
+      }
+      entry.newp = *realid;
+      if (*realid) {
+        entry.nr = GS((*realid)->name);
+      }
     }
   }
 }
@@ -4906,6 +4943,11 @@ static void read_library_linked_ids(FileData *basefd,
                                     Main *mainvar)
 {
   blender::Map<std::string, ID *> loaded_ids;
+  /* Remapping of all `libmap` pointers from placeholders to their real ID is done at once at the
+   * end, since doing it for each placeholder is quadratic. Placeholders are only freed after
+   * that. */
+  blender::Map<const void *, ID *> placeholder_to_real;
+  blender::Vector<ID *> placeholders_to_free;
 
   MainListsArray lbarray = BKE_main_lists_get(*mainvar);
   int a = lbarray.size();
@@ -4936,10 +4978,10 @@ static void read_library_linked_ids(FileData *basefd,
          * (known case: some directly linked shape-key from a missing lib...). */
         // BLI_assert(*realid != nullptr);
 
-        /* Now that we have a real ID, replace all pointers to placeholders in
-         * fd->libmap with pointers to the real data-blocks. We do this for all
-         * libraries since multiple might be referencing this ID. */
-        change_link_placeholder_to_real_ID_pointer(mainlist, basefd, id, realid);
+        /* Now that we have a real ID, all pointers to placeholders in fd->libmap need to be
+         * replaced with pointers to the real data-blocks. This is done for all libraries since
+         * multiple might be referencing this ID. */
+        placeholder_to_real.add_new(id, realid);
 
         /* Transfer the readfile data from the placeholder to the real ID, but
          * only if the real ID has no readfile data yet. The same realid may be
@@ -4954,12 +4996,17 @@ static void read_library_linked_ids(FileData *basefd,
          * ID, this shouldn't follow any pointers to embedded IDs. */
         BLO_readfile_id_runtime_data_free(*id);
 
-        MEM_freeN(id);
+        placeholders_to_free.append(id);
       }
       id = id_next;
     }
 
     loaded_ids.clear();
+  }
+
+  change_link_placeholders_to_real_ID_pointers(mainlist, basefd, placeholder_to_real);
+  for (ID *id : placeholders_to_free) {
+    MEM_freeN(id);
   }
 
   read_libraries_report_invalid_id_names(fd,

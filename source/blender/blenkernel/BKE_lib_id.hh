@@ -183,6 +183,14 @@ enum {
    * Implies LIB_ID_CREATE_NO_MAIN.
    */
   LIB_ID_CREATE_NO_ALLOCATE = 1 << 2,
+  /**
+   * Do not sort the new ID by name in its Main list, only ensure its name is unique. The ID is
+   * added at the start (local) or end (linked) of the list instead.
+   *
+   * Only valid for short-lived temporary IDs, which must be freed before any other ID of the same
+   * type is added to the same Main. Avoids the linear cost of sorted insertion in large lists.
+   */
+  LIB_ID_CREATE_NO_NAME_SORT = 1 << 3,
 
   /** Do not tag new ID for update in depsgraph. */
   LIB_ID_CREATE_NO_DEG_TAG = 1 << 8,
